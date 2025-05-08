@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sign Up - My Two Minutes Food</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://kit.fontawesome.com/a2d0b5b6f8.js" crossorigin="anonymous"></script>
+</head>
+<body class="bg-white min-h-screen flex items-center justify-center">
+
+  <div class="w-full max-w-md p-6 bg-white rounded-xl shadow-xl">
+    <!-- Logo -->
+    <div class="flex justify-center mb-4">
+      <img
+        src="https://i.postimg.cc/wvd4mBkh/Whats-App-Image-2025-05-05-at-11-16-46.jpg"
+        alt="Logo"
+        class="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md"
+      />
+    </div>
+
+    <h2 class="text-2xl font-bold text-center mb-6">Create Your Account</h2>
+
+    <!-- Sign Up Form -->
+    <form id="signupForm" class="space-y-4">
+      <input
+        id="email"
+        type="email"
+        placeholder="Email"
+        class="w-full p-3 rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-orange-400"
+        required
+      />
+      <input
+        id="password"
+        type="password"
+        placeholder="Password"
+        class="w-full p-3 rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-orange-400"
+        required
+      />
+      <button
+        type="submit"
+        class="w-full bg-orange-500 text-white p-3 rounded-lg hover:bg-orange-600 transition duration-300"
+      >
+        Sign Up
+      </button>
+    </form>
+
+    <!-- Sign-up Success/Error Messages -->
+    <div id="message" class="text-center mt-4 text-sm text-gray-600"></div>
+
+    <p class="text-center mt-4 text-gray-600">
+      Already have an account?
+      <a href="login.html" class="text-blue-500 hover:underline">Login here</a>
+    </p>
+  </div>
+
+  
+  <!-- Firebase Scripts -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.1.2/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/9.1.2/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAxBT0oESoL62oz_x_Z8cMtdENWZPx4tMI",
+      authDomain: "pinotp-d7ef5.firebaseapp.com",
+      databaseURL: "https://pinotp-d7ef5-default-rtdb.firebaseio.com",
+      projectId: "pinotp-d7ef5",
+      storageBucket: "pinotp-d7ef5.firebasestorage.app",
+      messagingSenderId: "708458917827",
+      appId: "1:708458917827:web:8b8cc6de6176f936cf9776"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+
+    // Sign-Up Form Handling
+    const signupForm = document.getElementById("signupForm");
+    const messageDiv = document.getElementById("message");
+
+    // Email/Password Sign-Up
+    signupForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      try {
+        await createUserWithEmailAndPassword(auth, email, password);
+        messageDiv.textContent = "Sign Up Successful! Redirecting to Login...";
+        messageDiv.classList.add("text-green-500");
+        setTimeout(() => {
+          window.location.href = "login.html"; // Redirect after success
+        }, 2000);
+      } catch (error) {
+        messageDiv.textContent = `Error: ${error.message}`;
+        messageDiv.classList.add("text-red-500");
+      }
+    });
+
+    // Google Sign-Up
+    document.getElementById("googleSignup").addEventListener("click", async () => {
+      try {
+        await signInWithPopup(auth, provider);
+        messageDiv.textContent = "Signed up with Google successfully! Redirecting...";
+        messageDiv.classList.add("text-green-500");
+        setTimeout(() => {
+          window.location.href = "login.html"; // Redirect after success
+        }, 2000);
+      } catch (error) {
+        messageDiv.textContent = `Error: ${error.message}`;
+        messageDiv.classList.add("text-red-500");
+      }
+    });
+  </script>
+</body>
+</html>
