@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Checkout - My Two Minutes Food</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.5.1/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.5.1/mapbox-gl.css" rel="stylesheet" />
+</head>
+<body class="bg-gray-100 font-sans">
+
+  <div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-lg mt-6">
+    <h1 class="text-3xl font-bold mb-6 text-orange-600">Checkout</h1>
+
+    <div class="flex flex-col lg:flex-row space-y-6 lg:space-y-0 lg:space-x-10">
+      <!-- Order Summary Section -->
+      <div class="flex-1">
+        <h2 class="text-xl font-semibold mb-4">Order Summary</h2>
+        <div id="cartItems" class="mb-6 space-y-4"></div>
+
+        <div class="flex justify-between text-lg font-semibold">
+          <span>Subtotal:</span>
+          <span id="subtotalAmount">R0.00</span>
+        </div>
+        <div class="flex justify-between text-lg font-semibold mt-2">
+          <span>Delivery Fee:</span>
+          <span id="deliveryFee">R30.00</span>
+        </div>
+        <div id="discountAmount" class="flex justify-between text-lg font-semibold text-red-500 mt-2 hidden">
+          <span>Discount:</span>
+          <span id="discountText">R0.00</span>
+        </div>
+        <div class="flex justify-between text-xl font-bold mt-4">
+          <span>Total:</span>
+          <span id="totalAmount">R0.00</span>
+        </div>
+
+        <div class="flex justify-between items-center mt-4">
+          <input type="text" id="promoCode" placeholder="Promo Code" class="w-2/3 p-3 border rounded-lg" />
+          <button id="applyPromoBtn" class="ml-2 bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded-lg">Apply</button>
+        </div>
+        <div id="promoMessage" class="text-green-600 mt-2 hidden">Promo code applied successfully!</div>
+      </div>
+
+      <!-- Delivery & Payment Section -->
+      <div class="w-full lg:w-96">
+        <h2 class="text-xl font-semibold mb-4">Delivery Address</h2>
+        <form id="deliveryForm" class="space-y-4">
+          <input type="text" id="name" placeholder="Full Name" class="w-full p-3 border rounded-lg" required />
+          <input type="text" id="address" placeholder="Delivery Address" class="w-full p-3 border rounded-lg" required disabled />
+          <input type="tel" id="phone" placeholder="Phone Number" class="w-full p-3 border rounded-lg" required />
+          <textarea id="instructions" placeholder="Delivery Instructions" class="w-full p-3 border rounded-lg" rows="3"></textarea>
+          <div class="mt-4">
+            <h3 class="font-semibold">Payment Method</h3>
+            <select id="paymentMethod" class="w-full p-3 border rounded-lg">
+              <option value="credit_card">Credit/Debit Card</option>
+              <option value="cash_on_delivery">Cash on Delivery</option>
+            </select>
+          </div>
+          <button type="submit" id="submitOrder" class="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg mt-6 text-lg">Place Order</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Spinner for Processing -->
+    <div id="spinner" class="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center hidden">
+      <div class="spinner-border animate-spin inline-block w-12 h-12 border-4 border-solid border-orange-500 rounded-full"></div>
+    </div>
+    
+    <!-- Toast Message for Success -->
+    <div id="toastMessage" class="fixed bottom-4 left-4 p-4 bg-green-500 text-white rounded-lg shadow-lg hidden">
+      <p id="toastText">Your order has been placed successfully!</p>
+    </div>
+    
+    <!-- Toast Message for Error -->
+    <div id="errorToastMessage" class="fixed bottom-4 left-4 p-4 bg-red-500 text-white rounded-lg shadow-lg hidden">
+      <p id="errorToastText">There was an error placing your order. Please try again.</p>
+    </div>
+
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.1.2/firebase-app.js";
+    import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/9.1.2/firebase-database.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.1.2/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAxBT0oESoL62oz_x_Z8cMtdENWZPx4tMI",
+      authDomain: "pinotp-d7ef5.firebaseapp.com",
+      databaseURL: "https://pinotp-d7ef5-default-rtdb.firebaseio.com",
+      projectId: "pinotp-d7ef5",
+      storageBucket: "pinotp-d7ef5.appspot.com",
+      messagingSenderId: "708458917827",
+      appId: "1:708458917827:web:8b8cc6de6176f936cf9776"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const auth = getAuth();
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const restaurantId = urlParams.get('restaurantId');
+    const cart = JSON.parse(decodeURIComponent(urlParams.get('cart')));
+    let userId = null;
+
+    const cartItemsContainer = document.getElementById('cartItems');
+    const subtotalAmountEl = document.getElementById('subtotalAmount');
+    const deliveryFeeEl = document.getElementById('deliveryFee');
+    const totalAmountEl = document.getElementById('totalAmount');
+    const applyPromoBtn = document.getElementById('applyPromoBtn');
+    const promoCodeInput = document.getElementById('promoCode');
+    const promoMessage = document.getElementById('promoMessage');
+    const discountAmount = document.getElementById('discountAmount');
+    const discountText = document.getElementById('discountText');
+    const deliveryForm = document.getElementById('deliveryForm');
+    const addressInput = document.getElementById('address');
+    const spinner = document.getElementById('spinner');
+    const toastMessage = document.getElementById('toastMessage');
+    const errorToastMessage = document.getElementById('errorToastMessage');
+    const submitOrderBtn = document.getElementById('submitOrder');
+    let discount = 0;
+
+    const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1Ijoia2F0bGVnb3BoYXNoYSIsImEiOiJjbTlpOTdzbmYwMGNsMmpzYWJtZzN4d3pqIn0.Zt-aSMEoahrV3zkiVVHbOw';
+    const DELIVERY_FEE = 30.00;
+
+    const validPromoCodes = {
+      'SAVE20': 20,
+      'OFF10': '10%'
+    };
+
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        userId = user.uid;
+        renderCart();
+        getCurrentLocation();
+      }
+    });
+
+    function renderCart() {
+      let total = 0;
+      cartItemsContainer.innerHTML = '';
+      cart.forEach(c => {
+        const itemEl = document.createElement('div');
+        itemEl.className = 'bg-gray-50 p-4 rounded border';
+        const itemTotal = c.item.price * c.quantity;
+        itemEl.innerHTML = ` 
+          <div class="flex justify-between">
+            <span class="font-semibold text-lg">${c.item.name}</span>
+            <span class="text-orange-600 font-semibold">R${itemTotal.toFixed(2)}</span>
+          </div>
+          <div class="flex justify-between text-sm text-gray-500 mt-1">
+            <span>Quantity: ${c.quantity}</span>
+            <span>Unit Price: R${c.item.price.toFixed(2)}</span>
+          </div>
+        `;
+        cartItemsContainer.appendChild(itemEl);
+        total += itemTotal;
+      });
+
+      subtotalAmountEl.textContent = `R${total.toFixed(2)}`;
+      totalAmountEl.textContent = `R${(total + DELIVERY_FEE - discount).toFixed(2)}`;
+    }
+
+    function getCurrentLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(position => {
+          const { latitude, longitude } = position.coords;
+          reverseGeocode(latitude, longitude);
+        }, () => {
+          alert('Unable to retrieve your location');
+        });
+      } else {
+        alert('Geolocation not supported');
+      }
+    }
+
+    function reverseGeocode(lat, lng) {
+      const geocodeUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_ACCESS_TOKEN}&limit=1`;
+      fetch(geocodeUrl)
+        .then(res => res.json())
+        .then(data => {
+          if (data.features && data.features.length > 0) {
+            addressInput.value = data.features[0].place_name;
+          }
+        });
+    }
+
+    submitOrderBtn.addEventListener('click', async e => {
+      e.preventDefault();
+      spinner.classList.remove('hidden'); // Show spinner
+
+      const name = document.getElementById('name').value;
+      const address = document.getElementById('address').value;
+      const phone = document.getElementById('phone').value;
+      const instructions = document.getElementById('instructions').value;
+      const paymentMethod = document.getElementById('paymentMethod').value;
+
+      const total = cart.reduce((sum, c) => sum + c.item.price * c.quantity, 0) + DELIVERY_FEE - discount;
+
+      const order = {
+        userId,
+        restaurantId,
+        cart,
+        name,
+        address,
+        phone,
+        instructions,
+        paymentMethod,
+        discount,
+        total,
+        timestamp: Date.now(),
+        status: 'pending'
+      };
+
+      const restaurantOrderRef = ref(db, `restaurants/${restaurantId}/orders`);
+      const globalOrderRef = ref(db, `orders`);
+
+      try {
+        await push(restaurantOrderRef, order);
+        await push(globalOrderRef, order);
+        
+        // Display Success Toast Message
+        toastMessage.classList.remove('hidden');
+        
+        // Redirect to status page after 3 seconds
+        setTimeout(() => {
+          window.location.href = 'status.html';
+        }, 3000);
+      } catch (error) {
+        // Hide spinner and show error toast
+        spinner.classList.add('hidden');
+        errorToastMessage.classList.remove('hidden');
+      }
+    });
+  </script>
+</body>
+</html>
