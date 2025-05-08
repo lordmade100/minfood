@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Profile - My Two Minutes Food</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.1.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.1.2/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.1.2/firebase-database.js"></script>
+  <!-- Mapbox Script -->
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.css" rel="stylesheet" />
+</head>
+<body class="bg-orange-50 min-h-screen">
+
+  <!-- Header -->
+  <header class="flex items-center justify-between p-4 bg-white shadow-md">
+    <button id="backBtn" class="text-gray-600 hover:text-orange-500">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2"
+           viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 18l-6-6 6-6" />
+      </svg>
+    </button>
+    <h1 class="text-xl font-semibold text-gray-800">Profile</h1>
+    <div class="w-6 h-6"></div> <!-- Spacer for balance -->
+  </header>
+
+  <!-- Profile Card -->
+  <main class="max-w-md mx-auto mt-8 px-4">
+    <div class="bg-white rounded-2xl shadow-lg p-6">
+      <!-- Profile Picture -->
+      <div class="flex justify-center mb-4">
+        <img id="profilePic" src="" alt="Profile Picture"
+             class="w-24 h-24 rounded-full object-cover ring-4 ring-orange-100 shadow-md" />
+      </div>
+
+      <!-- Name Input -->
+      <div class="mb-4">
+        <label for="userName" class="block text-gray-700 font-medium">Full Name</label>
+        <input type="text" id="userName" placeholder="Enter your name"
+               class="mt-2 w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 transition">
+      </div>
+
+      <!-- Email Display -->
+      <div class="mb-4">
+        <label for="email" class="block text-gray-700 font-medium">Email</label>
+        <input type="email" id="email" disabled
+               class="mt-2 w-full px-4 py-2 bg-gray-100 border border-gray-200 rounded-lg text-gray-500">
+      </div>
+
+      <!-- Current Location Address -->
+      <div class="mb-4">
+        <label for="location" class="block text-gray-700 font-medium">Current Location</label>
+        <input type="text" id="location" disabled
+               class="mt-2 w-full px-4 py-2 bg-gray-100 border border-gray-200 rounded-lg text-gray-500">
+      </div>
+
+      <!-- Update Profile Button -->
+      <button id="updateProfileBtn"
+              class="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 rounded-lg transition mb-3">
+        Update Profile
+      </button>
+
+      <!-- Sign Out Button -->
+      <button id="signOutBtn"
+              class="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-2 rounded-lg transition">
+        Sign Out
+      </button>
+    </div>
+  </main>
+
+  <!-- Firebase Script -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.1.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/9.1.2/firebase-auth.js";
+    import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/9.1.2/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAxBT0oESoL62oz_x_Z8cMtdENWZPx4tMI",
+      authDomain: "pinotp-d7ef5.firebaseapp.com",
+      databaseURL: "https://pinotp-d7ef5-default-rtdb.firebaseio.com",
+      projectId: "pinotp-d7ef5",
+      storageBucket: "pinotp-d7ef5.appspot.com",
+      messagingSenderId: "708458917827",
+      appId: "1:708458917827:web:8b8cc6de6176f936cf9776"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth();
+    const db = getDatabase(app);
+
+    const profilePic = document.getElementById('profilePic');
+    const userNameInput = document.getElementById('userName');
+    const emailInput = document.getElementById('email');
+    const locationInput = document.getElementById('location');
+    const updateProfileBtn = document.getElementById('updateProfileBtn');
+    const signOutBtn = document.getElementById('signOutBtn');
+    const backBtn = document.getElementById('backBtn');
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        profilePic.src = user.photoURL || "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y";
+        userNameInput.value = user.displayName || "";
+        emailInput.value = user.email;
+      } else {
+        window.location.href = "login.html";
+      }
+    });
+
+    updateProfileBtn.addEventListener('click', () => {
+      const newName = userNameInput.value.trim();
+      const user = auth.currentUser;
+
+      if (!newName) {
+        alert("Please enter a valid name.");
+        return;
+      }
+
+      updateProfile(user, { displayName: newName }).then(() => {
+        alert("Profile updated successfully!");
+      }).catch((error) => {
+        console.error(error);
+        alert("Error updating profile.");
+      });
+
+      const userRef = ref(db, 'users/' + user.uid);
+      set(userRef, {
+        displayName: newName,
+        email: user.email,
+      });
+    });
+
+    signOutBtn.addEventListener('click', () => {
+      signOut(auth).then(() => {
+        window.location.href = "login.html";
+      }).catch((error) => {
+        console.error(error);
+        alert("Error signing out.");
+      });
+    });
+
+    backBtn.addEventListener('click', () => {
+      window.location.href = "index.html";
+    });
+
+    // Get user's current location and show address
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+
+        // Reverse Geocoding to get the address
+        fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lon},${lat}.json?access_token=pk.eyJ1Ijoia2F0bGVnb3BoYXNoYSIsImEiOiJjbTlpOTdzbmYwMGNsMmpzYWJtZzN4d3pqIn0.Zt-aSMEoahrV3zkiVVHbOw`)
+          .then(response => response.json())
+          .then(data => {
+            const address = data.features[0]?.place_name || "Location not available";
+            locationInput.value = address;
+          })
+          .catch(error => {
+            console.error("Error fetching location:", error);
+            locationInput.value = "Unable to retrieve location.";
+          });
+      });
+    } else {
+      locationInput.value = "Geolocation not supported by browser.";
+    }
+  </script>
+</body>
+</html>
