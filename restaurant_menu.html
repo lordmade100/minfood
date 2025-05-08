@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Restaurant Menu</title>
+  <script src="https://cdn.tailwindcss.com"></script> <!-- Tailwind CSS CDN -->
+  <link rel="stylesheet" href="styles.css">
+  <!-- Font Awesome CDN for icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+
+</head>
+
+<!-- Style to Hide Scrollbar -->
+
+<style>
+ .scrollbar-hide {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+</style>
+
+<body class="bg-gray-100 font-sans">
+
+  <!-- Restaurant Info -->
+
+  <div class="container mx-auto p-6">
+   <div class="text-center mb-6">
+  <h1 id="restaurantName" class="text-4xl font-bold text-orange-600">Restaurant Name</h1>
+ <p id="restaurantLocation" class="flex items-center justify-center gap-1 text-center text-sm text-gray-500 mb-6">
+  <i class="fas fa-map-marker-alt text-gray-500"></i>
+  <span id="locationText">Restaurant Location</span>
+</p>
+
+</div>
+
+<!-- Categories -->
+
+<div class="overflow-x-auto bg-white p-2 sm:p-4 sticky top-0 z-10">
+  <div id="categories" class="flex space-x-2 sm:space-x-4 overflow-x-auto px-2 sm:px-4 scrollbar-hide text-sm sm:text-base">
+    <!-- Category buttons go here -->
+  </div>
+</div>
+
+
+
+<!-- Menu Items -->
+
+<div id="restaurantMenu" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+
+   <!-- Cart Button -->
+
+<button class="fixed bottom-6 right-6 bg-orange-500 text-white p-4 rounded-full shadow-xl text-xl flex items-center justify-center space-x-2" id="cartCount">
+  <i class="fas fa-shopping-cart"></i> <!-- Cart Icon -->
+  <span id="cartCountText">0</span> <!-- Cart Count -->
+</button>
+
+<!-- Cart Drawer -->
+
+<div id="cartDrawer" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+  <div class="bg-white w-full sm:w-1/2 md:w-1/3 p-6 absolute top-0 right-0 h-full overflow-y-auto">
+    <button class="text-2xl text-gray-500 mb-4" id="closeCartBtn">&times;</button>
+    <h2 class="text-2xl font-bold mb-4">Your Cart</h2>
+    <div id="cartItems"></div>
+    <div class="flex justify-between items-center mt-4">
+      <span>Total: </span><span id="totalAmount">0.00</span>
+    </div>
+    <button class="mt-6 bg-orange-500 text-white py-2 px-4 rounded-lg w-full" id="proceedBtn">Go to Checkout</button>
+    <button class="mt-4 bg-red-500 text-white py-2 px-4 rounded-lg w-full" id="clearCartBtn">Clear Cart</button>
+  </div>
+</div>
+
+<!-- Item Modal -->
+
+<div id="itemModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+  <div class="bg-white w-full sm:w-1/2 md:w-1/3 p-6 absolute top-0 left-0 right-0 bottom-0 mx-auto mt-16 rounded-lg shadow-xl">
+    <button class="text-2xl text-gray-500 mb-4" id="closeModalBtn">&times;</button>
+    <h3 id="itemName" class="text-2xl font-semibold mb-2 text-gray-800"></h3>
+    <p id="itemDescription" class="text-gray-600 mb-4"></p>
+    <p id="itemPrice" class="text-orange-500 font-bold mb-4"></p>
+    <input id="quantity" type="number" class="border p-2 rounded-lg w-full mb-4" value="1" min="1">
+    <button id="addToCartBtn" class="bg-orange-500 text-white py-2 px-4 rounded-lg w-full">Add to Cart</button>
+  </div>
+</div>
+
+  </div>
+
+  <!-- Firebase + Logic -->
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.1.2/firebase-app.js";
+    import { getDatabase, ref, set, get, child, onValue } from "https://www.gstatic.com/firebasejs/9.1.2/firebase-database.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.1.2/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAxBT0oESoL62oz_x_Z8cMtdENWZPx4tMI",
+      authDomain: "pinotp-d7ef5.firebaseapp.com",
+      databaseURL: "https://pinotp-d7ef5-default-rtdb.firebaseio.com",
+      projectId: "pinotp-d7ef5",
+      storageBucket: "pinotp-d7ef5.appspot.com",
+      messagingSenderId: "708458917827",
+      appId: "1:708458917827:web:8b8cc6de6176f936cf9776"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const auth = getAuth();
+
+    const restaurantMenu = document.getElementById('restaurantMenu');
+    const restaurantName = document.getElementById('restaurantName');
+    const restaurantLocation = document.getElementById('restaurantLocation');
+    const categoriesContainer = document.getElementById('categories');
+    const cartCount = document.getElementById('cartCount');
+    const itemModal = document.getElementById('itemModal');
+    const addToCartBtn = document.getElementById('addToCartBtn');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const quantityInput = document.getElementById('quantity');
+    const cartDrawer = document.getElementById('cartDrawer');
+    const cartItemsContainer = document.getElementById('cartItems');
+    const closeCartBtn = document.getElementById('closeCartBtn');
+    const clearCartBtn = document.getElementById('clearCartBtn');
+    const totalAmountEl = document.getElementById('totalAmount');
+    const proceedBtn = document.getElementById('proceedBtn');
+
+    let userId = null;
+    let cart = [];
+    let allMenuItems = [];
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const restaurantId = urlParams.get('restaurantId');
+
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        userId = user.uid;
+        loadCart();
+      }
+    });
+
+    function loadRestaurantMenu() {
+      const restaurantRef = ref(db, `restaurants/${restaurantId}`);
+      onValue(restaurantRef, (snapshot) => {
+        const restaurant = snapshot.val();
+        if (!restaurant) return;
+
+        restaurantName.textContent = restaurant.name;
+        document.getElementById('restaurantLocation').textContent = restaurant.location || 'Location not available';
+        allMenuItems = Object.entries(restaurant.menu || {});
+        renderCategories(allMenuItems);
+        renderMenuItems(allMenuItems);
+      });
+    }
+
+  function renderCategories(menuItems) {
+  categoriesContainer.innerHTML = '';
+
+  const categories = new Set(menuItems.map(([_, item]) => item.category));
+
+  // Create "All" button
+  const allBtn = document.createElement('button');
+ allBtn.className ='flex items-center px-4 py-2 bg-gray-200 rounded-full text-xs sm:text-lg font-semibold text-gray-700 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500 transition duration-300 ease-in-out';
+  allBtn.innerHTML = '<i class="fas fa-utensils mr-2"></i>All';  // Font Awesome icon for "All"
+  allBtn.onclick = () => {
+    document.querySelectorAll('#categories button').forEach(btn => btn.classList.remove('bg-orange-500', 'text-white'));
+    allBtn.classList.add('bg-orange-500', 'text-white');
+    renderMenuItems(allMenuItems);
+  };
+  categoriesContainer.appendChild(allBtn);
+
+  // Create category buttons
+  categories.forEach(category => {
+    const btn = document.createElement('button');
+    btn.className = 'flex items-center px-6 py-3 bg-gray-200 rounded-full text-lg font-semibold text-gray-700 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500 transition duration-300 ease-in-out';
+    
+    // Example: Add specific icons for categories
+    let icon = '';
+    switch (category) {
+      case 'Pizza':
+        icon = '<i class="fas fa-pizza-slice mr-2"></i>';
+        break;
+      case 'Burgers':
+        icon = '<i class="fas fa-hamburger mr-2"></i>';
+        break;
+      case 'Sushi':
+        icon = '<i class="fas fa-fish mr-2"></i>';
+        break;
+      default:
+        icon = '<i class="fas fa-utensils mr-2"></i>'; // Default icon
+    }
+    
+    btn.innerHTML = icon + category;
+    
+    btn.onclick = () => {
+      document.querySelectorAll('#categories button').forEach(b => b.classList.remove('bg-orange-500', 'text-white'));
+      btn.classList.add('bg-orange-500', 'text-white');
+      renderMenuItems(allMenuItems.filter(([_, item]) => item.category === category));
+    };
+    
+    categoriesContainer.appendChild(btn);
+  });
+}
+
+
+
+    function renderMenuItems(items) {
+      restaurantMenu.innerHTML = '';
+      items.forEach(([itemId, item]) => {
+        const el = document.createElement('div');
+        el.className = 'bg-white rounded-lg p-6 shadow-lg hover:shadow-xl transition duration-300';
+        el.innerHTML = `
+          <img src="${item.image}" alt="${item.name}" class="w-full h-48 object-cover rounded-lg mb-4">
+          <h3 class="text-xl font-semibold text-gray-800">${item.name}</h3>
+          <p class="text-gray-600">${item.description}</p>
+          <p class="text-orange-500 font-bold text-lg">R${item.price.toFixed(2)}</p>
+          <button class="mt-4 bg-orange-500 text-white py-2 px-4 rounded-lg w-full">View Details</button>
+        `;
+        el.querySelector('button').addEventListener('click', () => openItemModal(item));
+        restaurantMenu.appendChild(el);
+      });
+    }
+
+    function openItemModal(item) {
+      document.getElementById('itemName').textContent = item.name;
+      document.getElementById('itemDescription').textContent = item.description;
+      document.getElementById('itemPrice').textContent = `R${item.price.toFixed(2)}`;
+      itemModal.classList.remove('hidden');
+      addToCartBtn.onclick = () => addToCart(item);
+    }
+
+    function closeModal() {
+      itemModal.classList.add('hidden');
+    }
+
+    closeModalBtn.addEventListener('click', closeModal);
+
+    function addToCart(item) {
+      const quantity = parseInt(quantityInput.value);
+      const existing = cart.find(c => c.item.name === item.name);
+
+      // Add the restaurantId to the cart item
+      const cartItem = {
+        item,
+        quantity,
+        restaurantId: restaurantId // Auto-filled restaurantId
+      };
+
+      if (existing) {
+        existing.quantity += quantity;
+      } else {
+        cart.push(cartItem);
+      }
+
+      saveCart();
+      updateCartCount();
+      closeModal();
+    }
+
+    function saveCart() {
+      localStorage.setItem(`cart-${userId}`, JSON.stringify(cart));
+    }
+
+    function loadCart() {
+      const storedCart = JSON.parse(localStorage.getItem(`cart-${userId}`));
+      if (storedCart) {
+        cart = storedCart;
+        updateCartCount();
+      }
+    }
+
+    function updateCartCount() {
+      const count = cart.reduce((total, c) => total + c.quantity, 0);
+      cartCount.textContent = count;
+    }
+
+    function renderCartItems() {
+      cartItemsContainer.innerHTML = '';
+      let totalAmount = 0;
+      cart.forEach(c => {
+        const el = document.createElement('div');
+        el.className = 'mb-4';
+        el.innerHTML = `
+          <h4 class="text-lg font-semibold">${c.item.name} (x${c.quantity})</h4>
+          <p class="text-orange-500 font-bold">R${(c.item.price * c.quantity).toFixed(2)}</p>
+        `;
+        totalAmount += c.item.price * c.quantity;
+        cartItemsContainer.appendChild(el);
+      });
+      totalAmountEl.textContent = totalAmount.toFixed(2);
+    }
+
+    // Show Cart
+    cartCount.addEventListener('click', () => {
+      cartDrawer.classList.remove('hidden');
+      renderCartItems(); // Render cart when the drawer opens
+    });
+
+    // Close Cart
+    closeCartBtn.addEventListener('click', () => {
+      cartDrawer.classList.add('hidden');
+    });
+
+    // Clear Cart
+    clearCartBtn.addEventListener('click', () => {
+      cart = [];
+      saveCart();
+      renderCartItems(); // Re-render cart after clearing
+      updateCartCount();
+    });
+
+    // Proceed to Payment
+    proceedBtn.addEventListener('click', () => {
+      window.location.href = `checkout.html?restaurantId=${restaurantId}&cart=${encodeURIComponent(JSON.stringify(cart))}`;
+    });
+
+    loadRestaurantMenu();
+  </script>
+
+</body>
+</html>
