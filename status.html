@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Order Status - My Two Minutes Food</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.1.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.1.2/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.1.2/firebase-auth.js"></script>
+</head>
+<body class="bg-gray-100 font-sans">
+
+  <div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-lg mt-6">
+    <h1 class="text-3xl font-bold mb-6 text-orange-600">Order Status</h1>
+
+    <div id="orderDetails" class="mb-6">
+      <div class="text-xl font-semibold mb-4">Order Information</div>
+      <div class="text-lg font-medium" id="orderName"></div>
+      <div class="text-lg font-medium" id="orderAddress"></div>
+      <div class="text-lg font-medium" id="orderPhone"></div>
+      <div class="text-lg font-medium" id="orderPayment"></div>
+      <div class="text-lg font-medium mt-4" id="orderTotal"></div>
+    </div>
+
+    <div id="orderTimeline" class="space-y-6">
+      <!-- Timeline events will go here -->
+    </div>
+
+    <div class="mt-6">
+      <button id="backToHome" class="bg-orange-500 text-white py-2 px-4 rounded-lg">Back to Home</button>
+    </div>
+  </div>
+
+  <script>
+    // Firebase Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyAxBT0oESoL62oz_x_Z8cMtdENWZPx4tMI",
+      authDomain: "pinotp-d7ef5.firebaseapp.com",
+      databaseURL: "https://pinotp-d7ef5-default-rtdb.firebaseio.com",
+      projectId: "pinotp-d7ef5",
+      storageBucket: "pinotp-d7ef5.appspot.com",
+      messagingSenderId: "708458917827",
+      appId: "1:708458917827:web:8b8cc6de6176f936cf9776"
+    };
+
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const orderId = new URLSearchParams(window.location.search).get('orderId'); // Assuming the orderId is passed in the URL
+    const orderRef = db.ref('orders/' + orderId);
+
+    // DOM Elements
+    const orderDetails = document.getElementById('orderDetails');
+    const orderTimeline = document.getElementById('orderTimeline');
+    const orderName = document.getElementById('orderName');
+    const orderAddress = document.getElementById('orderAddress');
+    const orderPhone = document.getElementById('orderPhone');
+    const orderPayment = document.getElementById('orderPayment');
+    const orderTotal = document.getElementById('orderTotal');
+    const backToHome = document.getElementById('backToHome');
+
+    // Fetch order details from Firebase
+    orderRef.once('value', (snapshot) => {
+      const orderData = snapshot.val();
+      if (orderData) {
+        // Display Order Info
+        orderName.textContent = `Name: ${orderData.name}`;
+        orderAddress.textContent = `Address: ${orderData.address}`;
+        orderPhone.textContent = `Phone: ${orderData.phone}`;
+        orderPayment.textContent = `Payment Method: ${orderData.paymentMethod}`;
+        orderTotal.textContent = `Total: R${orderData.total.toFixed(2)}`;
+
+        // Display Order Timeline
+        if (orderData.orderUpdates) {
+          Object.keys(orderData.orderUpdates).forEach((updateId) => {
+            const update = orderData.orderUpdates[updateId];
+            const timelineItem = document.createElement('div');
+            timelineItem.className = 'p-4 bg-gray-50 border rounded-lg';
+
+            const time = new Date(update.timestamp).toLocaleString();
+            timelineItem.innerHTML = `
+              <div class="font-semibold">${update.status}</div>
+              <div class="text-gray-500 text-sm">${time}</div>
+              <div class="mt-2">${update.description}</div>
+            `;
+            orderTimeline.appendChild(timelineItem);
+          });
+        }
+      }
+    });
+
+    // Back to Home button
+    backToHome.addEventListener('click', () => {
+      window.location.href = 'index.html'; // Adjust this based on where you want to go
+    });
+  </script>
+
+</body>
+</html>
