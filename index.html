@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Customer Menu - My Two Minutes Food</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <script src="https://www.gstatic.com/firebasejs/9.1.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.1.2/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.1.2/firebase-auth.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    #drawer a:hover {
+      color: #f97316;
+    }
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #333;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 5px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      font-size: 14px;
+      z-index: 1000;
+    }
+    /* Make sure the spinner is centered and only visible when needed */
+.spinner {
+  position: fixed; /* Keep the spinner fixed while loading */
+  top: 50%; /* Center vertically */
+  left: 50%; /* Center horizontally */
+  transform: translate(-50%, -50%); /* Adjust for exact center */
+  display: flex; /* To center the SVG inside */
+  justify-content: center;
+  align-items: center;
+  z-index: 9999; /* Ensure it's above other content */
+}
+
+/* Hidden class to keep spinner invisible by default */
+.hidden {
+  display: none;
+}
+
+/* Optional: Add animation if you want a nice smooth transition */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+  </style>
+</head>
+<body class="bg-gray-100">
+
+  <!-- Header with Menu Button and Cart Button -->
+  <header class="flex justify-between items-center p-4 bg-white shadow sm:px-6 md:px-8">
+    <button id="menuBtn" class="text-gray-700 focus:outline-none">
+      <!-- Icon Button -->
+      <svg class="w-6 h-6 text-gray-800" fill="none" stroke="currentColor" stroke-width="2"
+           viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 6h16M4 12h16M4 18h16"></path>
+      </svg>
+    </button>
+  <nav class="fixed top-0 left-0 w-full z-50 bg-transparent px-4 py-2">
+  <div class="bg-orange-500 rounded-full px-4 py-1 shadow flex items-center w-max">
+    <img src="https://i.postimg.cc/Pf13fPPM/Whats-App-Image-2025-05-05-at-11-16-46-1-removebg-preview.png" 
+         alt="Logo" 
+         class="h-8 object-contain" />
+  </div>
+</nav>
+
+
+
+    <!-- Cart Button -->
+   
+
+    <div id="userProfile" class="flex items-center space-x-2">
+      <span id="userName" class="text-sm font-semibold text-gray-800"></span>
+      <img id="userProfilePic" src="" alt="Profile" class="w-8 h-8 rounded-full" />
+     <button id="signOutBtn" class="text-sm text-red-500 hover:text-red-600 focus:outline-none"></button>
+    </div>
+  </header>
+
+  <!-- Drawer Menu -->
+  <div id="drawer" class="fixed top-0 left-0 w-64 h-full bg-white shadow transform -translate-x-full transition-transform duration-300 z-50 sm:w-72 md:w-80">
+    <div class="p-4">
+      <h2 class="text-lg font-bold mb-4">Menu</h2>
+      <ul class="space-y-2">
+        <li><a href="#" class="block text-gray-700 hover:text-blue-500">Home</a></li>
+        <li><a href="#" class="block text-gray-700 hover:text-blue-500">Orders</a></li>
+        <li><a href="#" class="block text-gray-700 hover:text-blue-500">Settings</a></li>
+        <li><a href="#" class="block text-gray-700 hover:text-blue-500">Status</a></li>
+        <li><a href="#" class="block text-gray-700 hover:text-blue-500">Request Ride</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Backdrop -->
+  <div id="drawerBackdrop" class="fixed inset-0 bg-black bg-opacity-50 hidden z-40"></div>
+
+  <!-- Categories -->
+  <div class="overflow-x-auto bg-white p-4 sticky top-0 z-10">
+    <div id="categoryList" class="flex space-x-4 overflow-x-auto">
+      <!-- Categories will be rendered here -->
+    </div>
+  </div>
+
+  <!-- Search Bar -->
+  <div class="px-4 mt-4">
+    <input 
+      type="text" 
+      id="searchInput" 
+      placeholder="Search restaurants..." 
+      class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+    />
+  </div>
+
+  <!-- Image Below Search Bar (New Section) -->
+  <div class="px-4 mt-4">
+    <img src="https://i.postimg.cc/T2rwvNS1/juicy-cheeseburger-rustic-wooden-board.jpg" alt="Delicious Food" class="w-full h-48 object-cover rounded-lg shadow-lg">
+  </div>
+
+  <!-- Customer Menu Section -->
+  <section class="container mx-auto my-6 px-4">
+    <h2 class="text-xl font-semibold text-gray-800 mb-4">Restaurants</h2>
+
+ <!-- Spinner (Initially Visible) -->
+<div id="spinner" class="spinner hidden">
+  <svg class="animate-spin h-10 w-10 text-orange-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+    <path class="opacity-75" fill="currentColor"
+          d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+  </svg>
+</div>
+
+
+
+
+    <div id="restaurantMenuList" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+      <!-- Restaurant Cards will go here -->
+    </div>
+  </section>
+
+<!-- Floating Bottom Navigation Bar (Orange, Floating, Rounded) -->
+<div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-orange-500 text-white w-[90%] max-w-md mx-auto rounded-full shadow-lg flex justify-around items-center py-3 px-4 z-50 sm:hidden">
+  <a href="status.html" class="flex flex-col items-center text-sm hover:text-black transition">
+    <i class="fas fa-clipboard-list text-lg mb-1"></i> Status
+  </a>
+  <a href="checkout.html" class="flex flex-col items-center text-sm hover:text-black transition">
+    <i class="fas fa-shopping-cart text-lg mb-1"></i> Cart
+  </a>
+  <a href="profile.html" class="flex flex-col items-center text-sm hover:text-black transition">
+    <i class="fas fa-user text-lg mb-1"></i> Profile
+  </a>
+</div>
+
+
+
+
+
+
+  <!-- Firebase Script -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.1.2/firebase-app.js";
+    import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/9.1.2/firebase-database.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.1.2/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAxBT0oESoL62oz_x_Z8cMtdENWZPx4tMI",
+      authDomain: "pinotp-d7ef5.firebaseapp.com",
+      databaseURL: "https://pinotp-d7ef5-default-rtdb.firebaseio.com",
+      projectId: "pinotp-d7ef5",
+      storageBucket: "pinotp-d7ef5.appspot.com",
+      messagingSenderId: "708458917827",
+      appId: "1:708458917827:web:8b8cc6de6176f936cf9776"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const auth = getAuth();
+
+    const restaurantMenuList = document.getElementById('restaurantMenuList');
+    const categoryList = document.getElementById('categoryList');
+    const searchInput = document.getElementById('searchInput');
+    const userName = document.getElementById('userName');
+    const userProfilePic = document.getElementById('userProfilePic');
+    const signOutBtn = document.getElementById('signOutBtn');
+    const cartBtn = document.getElementById('cartBtn');
+    const cartCount = document.getElementById('cartCount');
+    const spinner = document.getElementById('spinner');
+
+    const categories = [
+      "All", "Hot Deals", "Chicken", "Pizza", "Sushi", "Burgers",
+      "Asian", "Seafood", "African", "Health", "Grilled", "Kotas"
+    ];
+
+    let allRestaurants = [];
+    let cartItems = 0; // Initialize cart count
+
+ let activeCategory = "All"; // Default active category
+
+function createCategoryButtons() {
+  const categoryIcons = {
+    "All": "fa-utensils",
+    "Hot Deals": "fa-fire",
+    "Chicken": "fa-drumstick-bite",
+    "Pizza": "fa-pizza-slice",
+    "Sushi": "fa-fish",
+    "Burgers": "fa-hamburger",
+    "Asian": "fa-bowl-rice",
+    "Seafood": "fa-shrimp",
+    "African": "fa-pepper-hot",
+    "Health": "fa-leaf",
+    "Grilled": "fa-hotdog",
+    "Kotas": "fa-bread-slice"
+  };
+
+  categoryList.innerHTML = ""; // Clear old buttons
+
+  categories.forEach(category => {
+    const isActive = category === activeCategory;
+
+    const btn = document.createElement('button');
+    btn.className = `
+      flex items-center space-x-2 px-4 py-2 rounded-full text-sm 
+      transition-all duration-300 group
+      ${isActive 
+        ? "bg-orange-500 text-white" 
+        : "bg-gray-200 text-gray-700 hover:bg-orange-100"}
+    `;
+
+    const icon = document.createElement('i');
+    icon.className = `fas ${categoryIcons[category] || 'fa-utensils'} 
+      ${isActive 
+        ? "text-white" 
+        : "text-orange-400 group-hover:text-orange-600"} 
+      transition-transform duration-300 transform group-hover:scale-110`;
+
+    const span = document.createElement('span');
+    span.textContent = category;
+
+    btn.appendChild(icon);
+    btn.appendChild(span);
+
+    btn.addEventListener('click', () => {
+      activeCategory = category;
+      filterRestaurants(category);
+      createCategoryButtons(); // Rerender to update active state
+    });
+
+    categoryList.appendChild(btn);
+  });
+}
+
+
+
+
+    function renderRestaurants(data) {
+      restaurantMenuList.innerHTML = '';
+      data.forEach(({ id, restaurant }) => {
+        const card = document.createElement('div');
+        card.className = "p-4 bg-white shadow rounded cursor-pointer";
+        card.innerHTML = ` 
+          <img src="${restaurant.image}" class="w-full h-40 object-cover rounded mb-2" />
+          <h4 class="text-lg font-semibold">${restaurant.name}</h4>
+          <p class="text-sm text-gray-600">${restaurant.description}</p>
+          
+          <!-- Rating Section -->
+          <div class="flex items-center mt-2">
+            <span class="text-yellow-500">
+              ${renderStars(restaurant.rating || 0)}
+            </span>
+          </div>
+
+          <div class="flex justify-between items-center mt-2">
+            <div class="text-sm text-gray-500">Favorites: <span id="favoriteCount-${id}">${restaurant.favorites || 0}</span></div>
+            <button 
+              id="favoriteBtn-${id}" 
+              class="text-red-500 hover:text-red-600 focus:outline-none"
+              onclick="toggleFavorite('${id}')"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-6 h-6">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 21l-6-6m6 6l6-6m-6 6l-6-6"/>
+              </svg>
+            </button>
+          </div>
+        `;
+        card.addEventListener('click', () => {
+          window.location.href = `restaurant_menu.html?restaurantId=${id}`;
+        });
+        restaurantMenuList.appendChild(card);
+      });
+    }
+
+    function renderStars(rating) {
+      let stars = '';
+      for (let i = 1; i <= 5; i++) {
+        stars += ` 
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 inline-block ${i <= rating ? 'text-yellow-400' : 'text-gray-300'}" fill="currentColor" viewBox="0 0 20 20" stroke="currentColor">
+            <path d="M10 15l-3.6 2.3 1-4.3L3 8.9l4.5-.4L10 4l2.5 4.5 4.5.4-3.4 4.1 1 4.3L10 15z" />
+          </svg>
+        `;
+      }
+      return stars;
+    }
+
+    function toggleFavorite(id) {
+      const restaurantRef = ref(db, `restaurants/${id}`);
+      onValue(restaurantRef, snapshot => {
+        const restaurant = snapshot.val();
+        const newFavoritesCount = (restaurant.favorites || 0) + 1;
+        update(restaurantRef, { favorites: newFavoritesCount });
+        document.getElementById(`favoriteCount-${id}`).textContent = newFavoritesCount;
+      });
+    }
+
+    function filterRestaurants(category) {
+      const keyword = searchInput.value.toLowerCase().trim();
+      let filtered = allRestaurants;
+
+      if (category !== "All") {
+        filtered = filtered.filter(item =>
+          (item.restaurant.category || "").toLowerCase().includes(category.toLowerCase())
+        );
+      }
+
+      if (keyword) {
+        filtered = filtered.filter(item =>
+          (item.restaurant.name || "").toLowerCase().includes(keyword)
+        );
+      }
+
+      renderRestaurants(filtered);
+    }
+
+    function loadRestaurants() {
+      const restaurantsRef = ref(db, 'restaurants');
+      spinner.classList.remove('hidden');  // Show the spinner
+      onValue(restaurantsRef, snapshot => {
+        const data = snapshot.val();
+        allRestaurants = [];
+        if (data) {
+          for (let id in data) {
+            allRestaurants.push({ id, restaurant: data[id] });
+          }
+        }
+        renderRestaurants(allRestaurants);
+        spinner.classList.add('hidden');  // Hide the spinner once data is loaded
+      });
+    }
+
+
+
+
+  
+
+    searchInput.addEventListener('input', () => {
+      filterRestaurants("All");
+    });
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        userName.textContent = user.displayName || "User";
+        userProfilePic.src = user.photoURL || "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y";
+        signOutBtn.style.display = "inline-block";  // Show the sign-out button
+      } else {
+        userName.textContent = "";
+        userProfilePic.src = "";
+        signOutBtn.style.display = "none";  // Hide the sign-out button when the user is not logged in
+        window.location.href = "login.html";  // Redirect to login page if not logged in
+      }
+    });
+
+    // Sign Out Functionality
+    signOutBtn.addEventListener('click', () => {
+      signOut(auth).then(() => {
+        window.location.href = "login.html";
+      }).catch((error) => {
+        console.error("Sign Out Error", error);
+      });
+    });
+
+    createCategoryButtons();
+    loadRestaurants();
+  </script>
+
+  <!-- Drawer Toggle Script -->
+  <script>
+    const menuBtn = document.getElementById('menuBtn');
+    const drawer = document.getElementById('drawer');
+    const backdrop = document.getElementById('drawerBackdrop');
+
+    menuBtn.addEventListener('click', () => {
+      drawer.classList.toggle('-translate-x-full');
+      backdrop.classList.toggle('hidden');
+    });
+
+    backdrop.addEventListener('click', () => {
+      drawer.classList.add('-translate-x-full');
+      backdrop.classList.add('hidden');
+    });
+  </script>
+
+</body>
+</html>
